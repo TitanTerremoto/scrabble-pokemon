@@ -11,9 +11,10 @@
  * Mientras un atril está animando, los cambios que llegan se guardan
  * (want) y se aplican al terminar.
  *
- * Las fichas de quien mira no están sobre la mesa: flotan en una fila abajo
- * de la pantalla (siguen a la cámara), para usarlas mirando el tablero. Sus
- * rivales, en sus pantallas, las ven boca abajo en su atril.
+ * Las fichas de quien mira no se dibujan en 3D: las tiene en el atril HTML
+ * de abajo de la pantalla (play-panel.js). Las que roba vuelan desde la
+ * bolsa hacia abajo de la pantalla. Sus rivales, en sus pantallas, las ven
+ * boca abajo en su atril de la mesa.
  */
 import * as THREE from 'three';
 import { tween, ease, wait } from './tween.js';
@@ -85,9 +86,8 @@ export function createRacks(scene, factory, camera) {
   const bag = makeBag();
   scene.add(bag.group);
   let povSeat = null;
-  let hoverTile = null;
 
-  /** Lugar de la ficha k de n en la fila flotante (frente a la cámara). */
+  /** Lugar de la ficha k de n abajo de la pantalla (adonde vuelan las que roba quien mira). */
   function hudTransform(k, n, lift = 0) {
     const h = 2 * HUD.dist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     const w = h * camera.aspect;
@@ -133,12 +133,13 @@ export function createRacks(scene, factory, camera) {
     const n = items.length + reserve;
     items.forEach((item, k) => {
       const t = r.tiles[k];
-      // La que se está arrastrando (held) sigue oculta: la lleva el mouse.
-      if (!t.group.userData.held) t.group.visible = true;
-      t.group.userData.rackIndex = item.i;
-      t.group.children[0].castShadow = !hud; // las flotantes no hacen sombra sobre el tablero
+      t.group.visible = true;
+      t.gone = false;
       factory.skin(t, item.l, '', 'placed', 0);
-      if (hud) return; // las flotantes las acomoda update() en cada frame
+      if (hud) {
+        t.group.visible = false; // las de quien mira están en el atril HTML
+        return;
+      }
       const at = slot(seat, k, n, item.selected ? 1 : 0);
       t.group.scale.setScalar(1);
       if (!animate) {
@@ -213,7 +214,7 @@ export function createRacks(scene, factory, camera) {
   /** Saca del atril las fichas que se fueron (ocultas) y acomoda el resto. */
   function keepVisible(seat) {
     const r = ensure(seat);
-    const keep = r.tiles.map((t, k) => (t.group.visible ? r.items[k] : null)).filter(Boolean);
+    const keep = r.tiles.map((t, k) => (t.gone ? null : r.items[k])).filter(Boolean);
     layout(seat, keep, { animate: true });
   }
 
@@ -264,7 +265,10 @@ export function createRacks(scene, factory, camera) {
         flying.map((c, j) => {
           const src = r.tiles[picks[j]];
           const from = src ? transformOf(src) : slot(seat, 0, 1);
-          if (src) src.group.visible = false;
+          if (src) {
+            src.group.visible = false;
+            src.gone = true;
+          }
           const to = { pos: cellPos(c.r, c.c, 0.3), quat: FLAT, scale: 1 };
           return wait(j * 110)
             .then(() => flight(from, to, null, 560, 2.4))
@@ -288,6 +292,7 @@ export function createRacks(scene, factory, camera) {
           if (!src) return null;
           const from = transformOf(src);
           src.group.visible = false;
+          src.gone = true;
           return wait(j * 110)
             .then(() => flight(from, { pos: bag.mouth, quat: FLAT, scale: 1 }, null, 520, 2.2))
             .then(() => bag.jiggle());
@@ -297,46 +302,6 @@ export function createRacks(scene, factory, camera) {
       await wait(300);
       await draw(seat, count);
       finish(seat);
-    },
-
-    /** Fichas de quien mira, para agarrarlas con el mouse. */
-    povTiles(pov) {
-      const r = racks.get(pov);
-      if (!r || r.busy) return [];
-      return r.tiles.filter((t) => t.group.visible && t.group.userData.rackIndex != null);
-    },
-
-    /** Dónde vuelve una ficha soltada fuera del tablero. */
-    slotOf(pov, tile) {
-      const r = racks.get(pov);
-      const k = r ? r.tiles.indexOf(tile) : -1;
-      return k >= 0 ? slot(pov, k, r.tiles.length) : null;
-    },
-
-    /** ¿El mouse está sobre la fila de fichas flotantes? (ndc.y: −1 abajo, 1 arriba) */
-    overRack(ndc) {
-      return ndc.y < HUD.screenY + 0.2;
-    },
-
-    setHover(tile) {
-      hoverTile = tile;
-    },
-
-    /** En cada frame: las fichas flotantes siguen a la cámara, suaves. */
-    update(dt, t) {
-      const r = racks.get(povSeat);
-      if (!r) return;
-      const n = r.tiles.length + (r.reserve || 0);
-      const k = Math.min(1, dt * 14);
-      r.tiles.forEach((tile, i) => {
-        if (tile.group.userData.held) return;
-        const item = r.items[i] || {};
-        const lift = (item.selected ? 0.45 : 0) + (tile === hoverTile ? 0.25 : 0) + Math.sin(t * 2 + i * 0.7) * 0.04;
-        const at = hudTransform(i, n, lift);
-        tile.group.position.lerp(at.pos, k);
-        tile.group.quaternion.slerp(at.quat, k);
-        tile.group.scale.setScalar(tile.group.scale.x + (at.scale - tile.group.scale.x) * k);
-      });
     },
   };
 }

@@ -5,10 +5,12 @@
  *   (al recargar, sigue donde estaba).
  * - Aplica las acciones de esta pantalla, de los celulares (net-host.js) y
  *   de los bots; ScrabbleGame valida cada una.
- * - Dibuja el tablero al centro y a los 4 jugadores en su posición de la
- *   mesa (dos a cada lado). El atril del jugador en turno aparece abajo
- *   solo si juega en esta pantalla; con varios jugadores en la misma
- *   pantalla, una cortina lo tapa hasta que lo toca.
+ * - Pantalla completa: el tablero ocupa el área de juego; afuera solo van
+ *   las cámaras (cams.js) con la placa de cada jugador. Arriba, la barra del
+ *   turno y el menú; abajo, el atril si el jugador en turno juega en esta
+ *   pantalla (con varios jugadores aquí, una cortina lo tapa hasta que lo
+ *   toca). El tablero se encuadra en el espacio libre (hud.js): nada se
+ *   le superpone.
  */
 (function () {
   'use strict';
@@ -18,6 +20,8 @@
   const M = window.ScrabbleMoves;
   const BV = window.BoardView;
   const Setup = window.GameSetup;
+  const Hud = window.GameHud;
+  const Cams = window.GameCams;
 
   const GAME_KEY = 'scrabblePokemon.game.v1';
   const VIEW_KEY = 'scrabblePokemon.view3d';
@@ -127,14 +131,16 @@
       if (!res.ok) toast(`✗ ${res.error}`);
     },
     onChange: () => renderBoard(),
+    getDropTarget: () => activeBoard(),
   });
 
   function showScreen(name) {
     $('screenSetup').hidden = name !== 'setup';
     $('screenGame').hidden = name !== 'game';
-    $('btnRestart').hidden = name !== 'game';
-    $('btnSetup').hidden = name !== 'game';
+    // En partida no hay barra de página: todo es pantalla de juego.
+    document.body.classList.toggle('in-game', name === 'game');
     if (name === 'setup') Setup.render();
+    else safeArea.schedule();
   }
 
   /** Vista para esta pantalla: con atril solo si el jugador en turno juega aquí. */
@@ -163,11 +169,12 @@
   function apply3d() {
     if (use3d && !board3d && window.Board3D) board3d = window.Board3D.create($('board3dCanvas'), panel);
     $('board3dWrap').hidden = !has3d();
-    // En 3D el atril está sobre la mesa: el panel solo muestra la ficha de tipo y los botones.
-    document.body.classList.toggle('mode-3d', has3d());
     $('boardFrame').hidden = has3d();
     $('btnView3d').hidden = !window.Board3D;
     $('btnView3d').textContent = has3d() ? '▦ Vista 2D' : '🧊 Vista 3D';
+    $('btnCam').hidden = !has3d();
+    $('btnCenter').hidden = !has3d();
+    if (lastSafe) applySafe(lastSafe);
     if (state) render();
   }
 
@@ -181,7 +188,28 @@
     }
     apply3d();
   });
-  $('btnCam').addEventListener('click', () => board3d && board3d.toggleView());
+  $('btnCam').addEventListener('click', () => {
+    if (!board3d) return;
+    board3d.toggleView();
+    $('btnCam').textContent = board3d.isAltView() ? '🎥 Vista de la mesa' : '🎥 Vista cenital';
+  });
+  $('btnCenter').addEventListener('click', () => board3d && board3d.resetView());
+
+  // ── Espacio libre: el tablero se encuadra donde no hay barra, atril ni placas ──
+  let lastSafe = null;
+  function applySafe(rect) {
+    lastSafe = rect;
+    if (board3d) board3d.setSafeArea(rect);
+    Hud.placeBoard2d($('boardFrame'), rect);
+  }
+  const safeArea = Hud.watchSafeArea({
+    area: $('playArea'),
+    top: $('hudTop'),
+    bottom: $('hudBottom'),
+    sides: () => [...$('hudPlaques').children],
+    onChange: applySafe,
+  });
+  safeArea.observe($('hudPlaques'));
 
   function renderBoard() {
     const view = hostView();
@@ -192,50 +220,51 @@
   const localHumans = () => state.players.filter(isLocalHuman).length;
   const curtainUp = (view) => view.me >= 0 && localHumans() > 1 && curtainOpenFor !== turnKey();
 
-  function renderSeats(view) {
-    for (let seat = 0; seat < Setup.SEATS; seat++) {
-      const i = view.players.findIndex((p) => p.seat === seat);
-      const slot = $(`seatSlot${seat}`);
-      if (i < 0) {
-        slot.replaceChildren(el('div', { class: 'seat-empty', text: 'Asiento libre' }));
-        continue;
-      }
-      const p = view.players[i];
-      const winner = view.winners && view.winners.includes(i);
-      slot.replaceChildren(BV.playerCard(p, { active: view.phase === 'play' ? view.turn === i : winner, winner, connected: isRemote(seat), phaseOver: view.phase !== 'play' }));
+  /** Barra de arriba: de quién es el turno, qué tipo debe crear, ronda y bolsa. */
+  function renderHudTop(view) {
+    const round = view.rounds ? `Ronda ${view.round}/${view.rounds}` : `Ronda ${view.round}`;
+    const meta = el('span', { class: 'hud-meta', text: `${round}${view.lastRound ? ' · ¡última!' : ''} · 🎒 ${view.bagCount}` });
+    if (view.phase !== 'play') {
+      $('hudTurn').replaceChildren(el('div', { class: 'hud-pill' }, [el('strong', { text: '🏁 La partida terminó' }), meta]));
+      return;
     }
+    const p = view.players[view.turn];
+    const why = p.bot ? '🤖 pensando…' : isRemote(p.seat) ? '🖥 en su pantalla' : '';
+    $('hudTurn').replaceChildren(
+      el('div', { class: 'hud-pill', style: { '--pc': p.color } }, [
+        BV.sprite(p.avatar, 'hud-avatar'),
+        el('div', { class: 'hud-who' }, [el('small', { text: 'Turno de' }), el('strong', { text: p.name })]),
+        BV.typeChip(p.type, true),
+        why ? el('span', { class: 'hud-why', text: why }) : null,
+        meta,
+      ]),
+    );
   }
 
-  function renderTurnArea(view) {
-    const p = view.players[view.turn];
+  /** Abajo: el atril (o la cortina) solo si el jugador en turno juega en esta pantalla. */
+  function renderBottom(view) {
     const status = $('turnStatus');
-    const round = view.rounds ? `Ronda ${view.round} de ${view.rounds}` : `Ronda ${view.round}`;
-    $('roundInfo').textContent = `${round}${view.lastRound ? ' · ¡última!' : ''} · Bolsa: ${view.bagCount}`;
-    if (view.phase !== 'play') {
-      status.replaceChildren(el('p', { text: '🏁 La partida terminó.' }));
+    status.replaceChildren();
+    if (view.phase !== 'play' || view.me < 0) {
       $('playPanel').hidden = true;
+      $('hudBottom').hidden = true;
       return;
     }
-    if (view.me >= 0) {
-      status.replaceChildren();
-      if (curtainUp(view)) {
-        $('playPanel').hidden = true;
-        status.replaceChildren(
-          el('button', { class: 'curtain', style: { '--pc': p.color }, attrs: { type: 'button' }, on: { click: liftCurtain } }, [
-            BV.sprite(p.avatar),
-            el('strong', { text: `Turno de ${p.name}` }),
-            el('span', { text: 'Los demás, no miren 🙈 · Toca para ver tus fichas' }),
-          ]),
-        );
-        return;
-      }
-      $('playPanel').hidden = false;
-      panel.update(view);
+    $('hudBottom').hidden = false;
+    const p = view.players[view.turn];
+    if (curtainUp(view)) {
+      $('playPanel').hidden = true;
+      status.replaceChildren(
+        el('button', { class: 'curtain', style: { '--pc': p.color }, attrs: { type: 'button' }, on: { click: liftCurtain } }, [
+          BV.sprite(p.avatar),
+          el('strong', { text: `Turno de ${p.name}` }),
+          el('span', { text: 'Los demás, no miren 🙈 · Toca para ver tus fichas' }),
+        ]),
+      );
       return;
     }
-    $('playPanel').hidden = true;
-    const why = p.bot ? '🤖 está pensando…' : '🖥 juega desde su pantalla.';
-    status.replaceChildren(el('div', { class: 'turn-banner', style: { '--pc': p.color } }, [BV.sprite(p.avatar), el('strong', { text: p.name }), el('span', { text: ` ${why}` }), BV.typeChip(p.type, true)]));
+    $('playPanel').hidden = false;
+    panel.update(view);
   }
 
   function liftCurtain() {
@@ -289,30 +318,37 @@
     shownEndFor = view.moveNo;
   }
 
-  // Cartel «¡Turno de …!»: al cambiar el turno, después del festejo de la jugada.
-  let bannerKey = null;
-  function maybeTurnBanner(view) {
+  // Cambio de turno: la barra de arriba y la placa del jugador se animan
+  // (después del festejo de la jugada). Nada aparece sobre el tablero.
+  let animatedTurn = null;
+  function maybeAnimateTurn(view) {
     const key = view.phase === 'play' ? turnKey() : null;
-    if (key === bannerKey) return;
-    const first = bannerKey == null;
-    bannerKey = key;
+    if (key === animatedTurn) return;
+    const first = animatedTurn == null;
+    animatedTurn = key;
     if (!key || first) return;
     const justPlayed = view.log[0] && view.log[0].kind === 'play' && view.log[0].n === view.moveNo;
-    const wait = justPlayed ? (has3d() ? CELEBRATE_3D_MS - 500 : REVEAL_MS) : 150;
+    const wait = justPlayed ? (has3d() ? CELEBRATE_3D_MS - 500 : REVEAL_MS) : 60;
     setTimeout(() => {
-      if (bannerKey !== key) return;
-      const p = view.players[view.turn];
-      BV.turnBanner($('turnPop'), p, p.name);
+      if (animatedTurn !== key) return;
+      for (const node of document.querySelectorAll('#hudTurn .hud-pill, .cam-slot.turn, .corner-plate .plate.active')) {
+        node.classList.remove('turn-in');
+        void node.offsetWidth; // reinicia la animación
+        node.classList.add('turn-in');
+      }
     }, wait);
   }
 
   function render() {
     if (!state) return;
     const view = hostView();
-    maybeTurnBanner(view);
-    renderSeats(view);
-    renderTurnArea(view);
+    Cams.render(view, isRemote);
+    Cams.renderControls($('camControls'), view.players.length);
+    renderHudTop(view);
+    renderBottom(view);
     renderBoard();
+    maybeAnimateTurn(view);
+    safeArea.schedule();
     renderLog(view);
     maybeReveal(view);
     renderEnd(view);
@@ -325,13 +361,22 @@
     if (typeof players === 'string') return toast(players);
     start(players);
   });
+  const menu = Hud.bindMenu($('btnMenu'), $('menuDrawer'), $('btnMenuClose'));
+  Hud.bindFullscreen($('btnFull'));
+  Cams.onChange(() => render());
+  $('btnRulesGame').addEventListener('click', () => {
+    menu.close();
+    openOverlay('rulesDialog');
+  });
   $('btnRestart').addEventListener('click', () => {
+    menu.close();
     if (state && state.phase === 'play' && !window.confirm('¿Empezar una partida nueva con los mismos jugadores?')) return;
     const players = Setup.players();
     if (typeof players === 'string') return toast(players);
     start(players);
   });
   $('btnSetup').addEventListener('click', () => {
+    menu.close();
     if (state && state.phase === 'play' && !window.confirm('¿Salir de la partida? Se pierde el progreso.')) return;
     quit();
   });

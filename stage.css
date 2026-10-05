@@ -1,0 +1,326 @@
+/* ═══════════════════════════════════════════════════════════
+   Pantalla completa: columnas de cámaras + área de juego con su HUD.
+   Lo usan la pantalla principal (con cámaras) y la página del jugador.
+   El tablero se encuadra en el espacio libre que calcula hud.js.
+   ═══════════════════════════════════════════════════════════ */
+
+body.in-game { overflow: hidden; }
+body.in-game .topbar { display: none; }
+body.in-game main { padding: 0; }
+body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
+
+/* ───────── Columnas de cámaras ───────── */
+.stage-layout {
+  --camw: clamp(220px, 22vw, 440px);
+  --gap: 14px;
+  height: 100vh;
+  display: grid;
+  grid-template-columns: var(--camw) minmax(0, 1fr) var(--camw);
+  gap: var(--gap);
+  padding: var(--gap);
+}
+.stage-layout[data-cams='0'] { grid-template-columns: minmax(0, 1fr); padding: 0; }
+.stage-layout[data-cams='0'] .cam-col { display: none; }
+
+.cam-col { display: flex; flex-direction: column; justify-content: center; gap: var(--gap); min-height: 0; }
+.cam-slot {
+  display: grid;
+  grid-template-rows: auto auto;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 5px solid var(--pc);
+  background: #fff;
+  box-shadow: var(--shadow);
+  transition: box-shadow 0.3s, transform 0.3s;
+}
+.cam-slot.turn { box-shadow: 0 0 0 4px #fff, 0 0 30px color-mix(in srgb, var(--pc) 80%, transparent); }
+.cam-slot.winner { border-color: var(--gold); box-shadow: 0 0 0 4px #fff, 0 0 36px rgba(255, 203, 5, 0.9); }
+.cam-frame {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  max-height: calc((100vh - 4 * var(--gap)) / 2 - 86px);
+  display: grid;
+  place-items: center;
+  background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.03) 0 14px, transparent 14px 28px), #2b2f36;
+}
+.cam-hint { color: rgba(255, 255, 255, 0.35); font-weight: 800; letter-spacing: 2px; text-transform: uppercase; font-size: 0.85rem; }
+.stage-layout.chroma .cam-frame { background: #00b140; }
+.stage-layout.chroma .cam-hint { display: none; }
+
+/* ───────── Placa de jugador (cámaras y esquinas) ───────── */
+.plate {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--pc) 16%, #fff), #fff);
+  min-width: 0;
+}
+.plate.empty { justify-content: center; color: var(--ink-soft); }
+.plate-avatar { width: 48px; height: 48px; flex: none; border-radius: 50%; background: #fff; border: 3px solid var(--pc); display: grid; place-items: center; overflow: hidden; }
+.plate-avatar .sprite { width: 58px; height: 58px; }
+.plate.active .plate-avatar .sprite { animation: hop 1.1s ease-in-out infinite; }
+.plate-info { display: grid; gap: 4px; min-width: 0; flex: 1 1 0; overflow: hidden; }
+.plate-name { font-size: 1.1rem; color: var(--pc); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plate-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 0.8rem; font-weight: 700; color: var(--ink-soft); }
+.plate-score { position: relative; flex: none; display: grid; justify-items: end; line-height: 1; }
+.plate-score b { font-size: 1.9rem; font-weight: 900; font-variant-numeric: tabular-nums; }
+.plate-score small { color: var(--ink-soft); font-weight: 700; }
+.plate.scored .plate-score b { animation: pop 0.6s ease-out; color: var(--pc); }
+/* En turno: la placa entera toma el color del jugador (sin etiquetas encima de nada). */
+.plate.active { background: var(--pc); }
+.plate.active .plate-name, .plate.active .plate-score b, .plate.active .plate-score small, .plate.active .plate-meta { color: #fff; }
+.plate.active .plate-avatar { border-color: #fff; }
+.plate.winner { background: linear-gradient(90deg, #ffe066, #fff9db); }
+
+/* ───────── Área de juego ───────── */
+.play-area {
+  container-type: inline-size;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  background:
+    radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.7), transparent 60%),
+    linear-gradient(180deg, #8fd3ff, #d4f1c4);
+}
+.stage-layout[data-cams='0'] .play-area { border-radius: 0; box-shadow: none; }
+.play-area > .board3d { position: absolute; inset: 0; width: auto; min-width: 0; height: auto; border: 0; border-radius: 0; box-shadow: none; }
+.play-area > .board-frame { position: absolute; padding: 12px; }
+
+/* Barra de arriba */
+.hud-top {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+.hud-top > * { pointer-events: auto; }
+.hud-turn { flex: 1; display: flex; justify-content: center; min-width: 0; }
+.hud-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.hud-btn {
+  font: inherit;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 2px solid rgba(31, 41, 51, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow-sm);
+  font-size: 1.15rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.hud-btn:hover { background: #fff; transform: translateY(-1px); }
+.hud-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  padding: 5px 16px 5px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 3px solid var(--pc, #adb5bd);
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+}
+.hud-avatar { width: 40px; height: 40px; margin: -6px 0; }
+.hud-who { display: grid; line-height: 1.05; }
+.hud-who small { font-size: 0.7rem; font-weight: 800; color: var(--ink-soft); }
+.hud-who strong { color: var(--pc); font-size: 1.05rem; }
+.hud-why { font-size: 0.85rem; font-weight: 700; color: var(--ink-soft); }
+.hud-meta { font-size: 0.85rem; font-weight: 800; color: var(--ink-soft); padding-left: 8px; border-left: 2px solid var(--line); }
+.hud-pill { min-width: 0; overflow: hidden; }
+/* Área angosta: la barra de arriba pasa a dos filas (menú, aviso y botones
+   arriba; el turno abajo, a todo el ancho) y se compacta para no pisarse. */
+@container (max-width: 1120px) {
+  .hud-top { flex-wrap: wrap; row-gap: 8px; }
+  .hud-turn { order: 3; flex: 1 0 100%; }
+}
+@container (max-width: 760px) {
+  .hud-why, .hud-right .room-badge, .hud-right .ctrl-status { display: none; }
+  .hud-pill { gap: 6px; padding-right: 10px; }
+  .hud-who small { display: none; }
+}
+@container (max-width: 560px) {
+  .hud-meta { display: none; }
+}
+
+/* Placas en las esquinas (jugadores sin cámara) */
+.hud-plaques {
+  position: absolute;
+  top: calc(var(--hud-top-h, 56px) + 8px); /* debajo de la barra (hud.js) */
+  left: 10px;
+  right: 10px;
+  z-index: 15;
+  display: grid;
+  grid-template-columns: 250px 1fr 250px;
+  grid-auto-flow: dense;
+  gap: 10px;
+  pointer-events: none;
+}
+.corner-plate { border-radius: 14px; overflow: hidden; border: 3px solid var(--line); box-shadow: var(--shadow-sm); pointer-events: auto; }
+.corner-plate:nth-child(odd) { grid-column: 1; }
+.corner-plate:nth-child(even) { grid-column: 3; }
+
+/* Atril abajo */
+.hud-bottom {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  translate: -50% 0;
+  z-index: 20;
+  width: min(calc(100% - 20px), 1180px);
+  display: grid;
+  gap: 8px;
+}
+.hud-bottom .turn-status, .hud-bottom .play-panel-wrap { max-width: none; width: 100%; }
+
+/* Menú lateral */
+.menu-drawer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 70;
+  width: min(390px, 92%);
+  overflow-y: auto;
+  padding: 14px 16px 20px;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 8px 0 30px rgba(0, 0, 0, 0.25);
+  animation: drawer-in 0.25s ease-out;
+}
+.menu-head { display: flex; align-items: center; justify-content: space-between; }
+.menu-head strong { font-size: 1.2rem; }
+.menu-sec { display: grid; gap: 8px; padding-top: 10px; border-top: 2px solid var(--line); }
+.menu-sec h3 { font-size: 0.95rem; color: var(--ink-soft); }
+.menu-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.menu-row .btn { font-size: 0.88rem; padding: 0.45em 0.9em; }
+.menu-check { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 0.9rem; }
+.menu-drawer .seg { max-width: 100%; }
+.menu-drawer .game-log { max-height: none; }
+
+/* Ventanas y avisos dentro del área de juego (nunca sobre las cámaras) */
+.overlay.in-area { position: absolute; z-index: 60; }
+/* Aviso breve dentro de la barra de arriba (dom.js) */
+.hud-toast {
+  max-width: 300px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: #212529;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: var(--shadow-sm);
+}
+.hud-toast.show { animation: toast-in 0.25s ease-out; }
+
+/* ───────── Atril como barra ─────────
+   Angosto: ficha de tipo + fichas arriba; estado y botones abajo.
+   Ancho (área de 1000 px o más): todo en una fila. */
+.play-panel {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: 'type rack' 'side side';
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(4px);
+}
+.play-panel .type-tile { grid-area: type; width: auto; min-width: 72px; padding: 6px 8px; }
+.play-panel .type-tile img, .play-panel .type-tile .type-star { width: 26px; height: 26px; font-size: 1.3rem; }
+.play-panel .type-tile strong { font-size: 0.85rem; }
+.play-panel .type-tile small { font-size: 0.6rem; }
+.play-panel .rack { grid-area: rack; display: grid; gap: 4px; padding: 6px 8px 8px; min-width: 0; }
+.play-panel .pp-head { color: #fff; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35); font-size: 0.85rem; }
+.play-panel .pp-head strong { color: #fff; font-size: 0.9rem; }
+.play-panel .pp-bag { color: rgba(255, 255, 255, 0.9); }
+.play-panel .rack-tiles { --cell: min(54px, 6.4cqw); grid-template-columns: repeat(10, var(--cell)); gap: 4px; }
+.pp-side { grid-area: side; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+.pp-side .pp-status { min-height: 0; font-size: 0.88rem; flex: 1 1 220px; }
+.pp-side .pp-note, .pp-side .pp-hint { padding: 3px 8px; font-size: 0.78rem; flex: 1 1 100%; }
+.pp-side .pp-actions { flex: 0 1 auto; }
+.pp-side .pp-actions .btn { font-size: 0.8rem; padding: 0.38em 0.7em; }
+.pp-side .pp-actions .pp-main { font-size: 0.92rem; padding: 0.48em 1em; }
+
+@container (min-width: 1000px) {
+  .play-panel { grid-template-columns: auto auto minmax(0, 1fr); grid-template-areas: 'type rack side'; }
+  .play-panel .type-tile { align-self: stretch; }
+  .play-panel .rack-tiles { --cell: min(56px, 4cqw); }
+  .pp-side { display: grid; }
+}
+
+/* Arrastrar fichas */
+.rack-slot { touch-action: none; cursor: grab; }
+.rack-slot.dragging .tile { opacity: 0.25; transform: none !important; animation: none !important; }
+.rack-slot.insert-before { box-shadow: -5px 0 0 -1px #ffcb05; }
+.rack-slot.insert-after { box-shadow: 5px 0 0 -1px #ffcb05; }
+.drag-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 300;
+  pointer-events: none;
+  box-shadow: 0 14px 24px rgba(0, 0, 0, 0.35), 0 0 0 3px #ffcb05 !important;
+  transition: none;
+}
+.cell.drop-target { box-shadow: inset 0 0 0 4px #ffcb05; filter: brightness(1.1); }
+
+/* ───────── Animaciones del HUD ───────── */
+/* El atril sube al aparecer (su lugar en el diseño no cambia: el tablero no salta). */
+.hud-bottom:not([hidden]) { animation: bar-up 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.15); }
+.play-panel.turn-in { animation: bar-hello 0.9s ease-out; }
+.ctrl-score.turn-in, .hud-pill.turn-in { animation: pill-in 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.3); }
+.cam-slot.turn-in { animation: cam-in 1s ease-out; }
+.corner-plate .plate.turn-in { animation: pill-in 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.3); }
+.plate { transition: background 0.4s, color 0.4s; }
+.cam-slot.turn { animation: cam-glow 2s ease-in-out infinite; }
+.cam-slot.turn.turn-in { animation: cam-in 1s ease-out, cam-glow 2s ease-in-out 1s infinite; }
+.plate .pc-gain { right: auto; left: -8px; top: -14px; }
+.hud-turn .hud-pill { animation: none; }
+.hud-turn .hud-pill.turn-in { animation: pill-in 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.3); }
+
+@keyframes drawer-in { from { transform: translateX(-40px); opacity: 0; } }
+@keyframes bar-up { from { transform: translateY(120%); opacity: 0; } }
+@keyframes bar-hello {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--pc) 70%, transparent); transform: translateY(0); }
+  30% { transform: translateY(-8px); }
+  60% { box-shadow: 0 0 0 14px color-mix(in srgb, var(--pc) 0%, transparent); transform: translateY(0); }
+}
+@keyframes pill-in {
+  0% { transform: translateY(-24px) scale(0.85); opacity: 0; }
+  60% { transform: translateY(2px) scale(1.08); opacity: 1; }
+  100% { transform: none; }
+}
+@keyframes cam-in {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.04); box-shadow: 0 0 0 8px #fff, 0 0 50px var(--pc); }
+  100% { transform: scale(1); }
+}
+@keyframes cam-glow {
+  0%, 100% { box-shadow: 0 0 0 4px #fff, 0 0 18px color-mix(in srgb, var(--pc) 60%, transparent); }
+  50% { box-shadow: 0 0 0 4px #fff, 0 0 36px color-mix(in srgb, var(--pc) 95%, transparent); }
+}
+
+/* Pantallas más bajas: cámaras más angostas y atril más compacto */
+@media (max-height: 760px) {
+  .stage-layout { --camw: clamp(200px, 18vw, 340px); --gap: 10px; }
+  .play-panel { padding: 6px 10px; gap: 10px; }
+  .play-panel .rack-tiles { --cell: clamp(32px, 3.2vw, 48px); }
+}

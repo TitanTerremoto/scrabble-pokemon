@@ -1,6 +1,6 @@
 /*
  * Tablero 3D: une la escena (stage.js), la cámara (camera.js), los atriles
- * y la bolsa (racks.js), el mouse (drag.js), los compañeros y los efectos.
+ * y la bolsa (racks.js), el mouse (mouse.js), los compañeros y los efectos.
  *
  * Primera persona: si la vista tiene un jugador propio (view.me), la cámara
  * se sienta en su asiento, las letras se giran para que las lea derecho y
@@ -18,7 +18,7 @@ import { createCameraDirector } from './camera.js';
 import { createdSequence } from './fx.js';
 import { createTileFactory, TILE_H } from './tiles.js';
 import { createRacks } from './racks.js';
-import { createDrag } from './drag.js';
+import { createMouse } from './mouse.js';
 import { SEAT_ANGLE, COMPANION_LOCAL, toWorld } from './seats.js';
 import { dust, shockwave, sparks, firework, confetti, ambientMotes } from './particles.js';
 
@@ -53,7 +53,7 @@ function makeSpotlight() {
   return { group, beam, pool };
 }
 
-/** input: { tapCell(r,c), tapTile(i), placeAt(i,r,c), movePending(from,to), removeAt(r,c) } */
+/** input: { tapCell(r,c), movePending(from,to), removeAt(r,c), isOverRack(x,y) } (play-panel.js) */
 export function createBoard3D(container, input) {
   const { renderer, scene, camera, scenery, face } = createStage(container);
   const director = createCameraDirector(camera);
@@ -309,13 +309,21 @@ export function createBoard3D(container, input) {
     }, 900);
   }
 
+  let safeRect = null;
+  function applySafe() {
+    const W = container.clientWidth || 1;
+    const H = container.clientHeight || 1;
+    const r = safeRect || { x: 0, y: 0, w: W, h: H };
+    director.setSafeArea({ x: r.x, y: r.y, w: Math.max(50, r.w), h: Math.max(50, r.h), W, H });
+  }
+
   function resize() {
     const w = container.clientWidth || 1;
     const h = container.clientHeight || 1;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
-    director.snap();
+    applySafe();
   }
   new ResizeObserver(resize).observe(container);
   resize();
@@ -323,27 +331,58 @@ export function createBoard3D(container, input) {
 
   // ── Mouse ──
   const canvas = renderer.domElement;
-  const drag = createDrag({
+  const mouse = createMouse({
     canvas,
     camera,
+    director,
     factory,
-    getRackTiles: () => (pov != null && lastExtra && lastExtra.rack ? racks.povTiles(pov) : []),
     getPendingTiles: () => [...pending.values()],
-    slotOf: (tile) => racks.slotOf(pov, tile),
-    overRack: (ndc) => pov != null && racks.overRack(ndc),
-    onHoverTile: (tile) => racks.setHover(tile),
     canEdit: () => !!(lastExtra && lastExtra.editable),
+    isOverRack: (x, y) => !!(input.isOverRack && input.isOverRack(x, y)),
     onHover(cell) {
       hover = cell;
       if (lastView) render(lastView, lastExtra);
     },
-    onPlace: (i, cell) => input.placeAt(i, cell.r, cell.c),
     onMove: (from, to) => input.movePending(from, to),
     onRemove: (cell) => input.removeAt(cell.r, cell.c),
     onTapCell: (cell) => input.tapCell(cell.r, cell.c),
-    onTapTile: (i) => input.tapTile(i),
-    onDragState: (on) => director.setTilt(on),
   });
+
+  // ── Soltar fichas del atril HTML (rack-drag.js) ──
+  let ghost = null;
+  const isFree = (cell) => !!cell && !lastView.board[R.idx(cell.r, cell.c)] && !pending.has(R.idx(cell.r, cell.c));
+
+  /** Muestra una ficha «fantasma» encajada en la casilla bajo el mouse; devuelve esa casilla. */
+  function previewDrop(clientX, clientY, letter) {
+    const cell = lastView && lastExtra && lastExtra.editable ? mouse.cellAt(clientX, clientY) : null;
+    if (!isFree(cell)) {
+      clearDrop();
+      return null;
+    }
+    if (!ghost || ghost.letter !== letter) {
+      clearDrop();
+      ghost = factory.make(letter);
+      ghost.top.material.transparent = true;
+      ghost.top.material.opacity = 0.85;
+    }
+    factory.skin(ghost, letter, '', 'pending', angle);
+    ghost.group.position.copy(cellPos(cell.r, cell.c, BOARD_TOP + 0.08));
+    if (!hover || hover.r !== cell.r || hover.c !== cell.c) {
+      hover = cell;
+      render(lastView, lastExtra);
+    }
+    return cell;
+  }
+
+  function clearDrop() {
+    if (ghost) factory.dispose(ghost);
+    ghost = null;
+    if (hover) {
+      hover = null;
+      if (lastView) render(lastView, lastExtra);
+    }
+  }
+
 
   // ── Bucle ──
   const clock = new THREE.Clock();
@@ -354,7 +393,6 @@ export function createBoard3D(container, input) {
     const dt = Math.min(clock.getDelta(), 0.05);
     const t = clock.elapsedTime;
     tickTweens(now);
-    drag.tick();
     for (let k = effects.length - 1; k >= 0; k--) if (!effects[k](dt, t)) effects.splice(k, 1);
     for (const { comp } of companions.values()) comp.update(dt, t);
     for (const tile of pending.values()) {
@@ -364,7 +402,6 @@ export function createBoard3D(container, input) {
     spot.pool.scale.setScalar(1 + Math.sin(t * 4) * 0.06);
     scenery.update(dt, t);
     director.update(dt, t);
-    racks.update(dt, t); // después de la cámara: las fichas flotantes la siguen
     renderer.render(scene, camera);
   }
   requestAnimationFrame(frameLoop);
@@ -374,6 +411,14 @@ export function createBoard3D(container, input) {
     render,
     celebrate,
     toggleView: () => director.toggleAlt(),
+    resetView: () => director.resetUser(),
+    previewDrop,
+    clearDrop,
+    /** Espacio libre del lienzo (px, relativo al lienzo) donde debe entrar el tablero. */
+    setSafeArea(rect) {
+      safeRect = rect;
+      applySafe();
+    },
     isAltView: () => director.isAlt(),
     dispose() {
       running = false;

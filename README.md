@@ -24,48 +24,68 @@ python -m http.server 8766 --directory games/scrabble-pokemon
 La PC necesita internet: PeerJS usa su servidor público para presentar los
 dispositivos (los mensajes del juego viajan directo por la Wi-Fi).
 
-## Vista 3D (navegador en horizontal)
+## Pantalla completa y cámaras
+
+El juego se juega a **pantalla completa** en el navegador (horizontal). Todo
+es parte del área de juego; lo único que va afuera, como en Pokémon Party,
+son las **cámaras** de los jugadores.
+
+- **Pantalla principal:** 0, 2, 3 o 4 cámaras (☰ → Cámaras; por defecto,
+  tantas como jugadores). 2: una por lado · 3: dos a la izquierda y una a la
+  derecha · 4: dos por lado. Interior neutro o **verde croma**. Debajo de
+  cada cámara va la placa del jugador (compañero, nombre, puntos, ficha de
+  tipo y fichas en el atril); la del jugador en turno se pinta de su color.
+  Los jugadores sin cámara tienen su placa en una esquina del área de juego.
+- **Área de juego:** arriba, la barra del turno (quién juega, qué tipo debe
+  crear, ronda y bolsa), el menú ☰, ⟲ (centrar) y ⛶ (pantalla completa).
+  Abajo, el atril cuando el jugador en turno juega en esa pantalla.
+- **Nada se superpone:** el tablero (2D o 3D) se encuadra solo en el espacio
+  libre que dejan la barra, el atril y las placas (en 3D, la cámara busca la
+  distancia exacta para que las cuatro esquinas del tablero entren).
+  Los avisos y el resultado aparecen dentro del área de juego, nunca sobre
+  las cámaras.
+- **Menú ☰:** nueva partida, configuración, cómo jugar, vista 2D/3D, vista
+  cenital, cámaras, sala en línea y la Pokédex de la partida.
+- **Avisos y turnos sin tapar nada:** los avisos breves («Misty se conectó»)
+  aparecen dentro de la barra de arriba. El cambio de turno se anima en la
+  barra, en la cámara/placa del jugador y, en su pantalla, en el atril (que
+  además sube al empezar el turno). En áreas angostas la barra pasa a dos
+  filas en vez de recortarse.
+- **Página de cada jugador** (`control.html`): igual, sin cámaras. Arriba,
+  los puntos y el tipo de todos; abajo, su atril.
+
+## Fichas y mouse
+
+- **Atril:** fichas grandes en la barra de abajo. Se **arrastran al
+  tablero**: mientras se arrastra, una ficha «fantasma» queda encajada en la
+  casilla donde va a caer (2D y 3D). Arrastrar dentro del atril las
+  **reordena**. Una ficha puesta vuelve al atril con un clic o soltándola
+  sobre el atril; también se puede mover a otra casilla arrastrándola.
+  Siguen valiendo «elegir ficha + clic en la casilla» y el teclado (clic en
+  una casilla y escribir; Enter crea el Pokémon).
+- **Tablero 3D:** arrastrar un lugar vacío **mueve** el tablero, clic
+  derecho (o Ctrl + arrastrar) **gira**, la rueda hace **zoom** y doble clic
+  o ⟲ **centra**.
+
+## Vista 3D
 
 La mesa es cuadrada, con **un jugador por lado** (Jugador 1 al sur, 2 al
 oeste, 3 al norte y 4 al este), cada uno con su atril, su Pokémon compañero
 (modelos de Cobblemon) y un cartel de nombre y puntos. Alrededor está el
-**diorama de Kanto** de Pokémon Party (Centro Pokémon, Tienda, Liga, mar,
-Monte Moon, árboles y Pokémon decorativos), y en una esquina, la **bolsa** de
-fichas con cuántas quedan.
+**diorama de Kanto** de Pokémon Party, y en una esquina, la **bolsa**.
 
-- **Vista de jugador:** en su pantalla (`control.html`, otra PC o pestaña),
-  cada jugador ve el **tablero desde su lado**, alto y orientado hacia él,
-  con **sus fichas flotando** en una fila abajo de la pantalla (siguen a la
-  cámara). «🪑 Ver la mesa» lo sienta detrás de su atril para mirar a los
-  rivales; «🎯 Ver el tablero» vuelve. Los atriles rivales están **boca
-  abajo**: solo se ve cuántas fichas tienen (las letras ajenas nunca llegan
-  a su pantalla). Sus propias fichas, los demás las ven boca abajo en su
-  atril de la mesa.
-- **Arrastrar:** se agarra una ficha de la fila flotante y se suelta en una
-  casilla. Una ficha puesta se puede mover a otra casilla o devolver
-  soltándola sobre la fila (o con un clic). Sigue valiendo hacer clic en una
-  casilla y escribir.
+- **Vista de jugador:** cada jugador ve el tablero desde su lado, orientado
+  hacia él. «🪑 Ver la mesa» (menú) lo sienta en su lugar para mirar a los
+  rivales. Los atriles rivales están **boca abajo** (las letras ajenas nunca
+  llegan a su pantalla).
 - **Fichas de los rivales:** cuando alguien juega, sus fichas vuelan de su
-  atril a las casillas (la letra se ve al caer) y después roba fichas de la
-  bolsa, que vuelan a su atril. Si cambia fichas, van a la bolsa y salen
-  otras. Solo se muestra lo confirmado, no lo que el rival está probando.
+  atril a las casillas (la letra se ve al caer) y roba fichas de la bolsa.
+  Si cambia fichas, van a la bolsa y salen otras. Solo se muestra lo
+  confirmado.
 - **Crear un Pokémon:** el compañero lanza una Poké Ball sobre la palabra,
   se abre con un destello y sale el Pokémon con su nombre y los puntos.
-  Un foco de luz marca el turno; al final hay fuegos artificiales.
-- **Pantalla principal:** vista general de toda la mesa (para el público o
-  el stream). Si el jugador en turno juega en esa misma pantalla, la cámara
-  viaja a su asiento en primera persona.
-- «🎥 Cámara» en la pantalla principal: vista general o cenital.
-  «▦ Vista 2D» vuelve al tablero plano (se recuerda).
-
-**Interfaz:** fondo con Poké Balls que se deslizan, tarjetas de jugador con
-el puntaje que sube animado (+N), atril de madera donde las fichas se
-reparten al renovarse, y Pokémon al azar flotando en la configuración.
-`effects.css` tiene lo decorativo y las animaciones; con «reducir movimiento»
-del sistema se desactivan.
-
-Compañeros disponibles: Pikachu, Bulbasaur, Charmander, Squirtle, Treecko,
-Jolteon, Emolga y Noibat.
+- **Pantalla principal:** vista general de la mesa; si el jugador en turno
+  juega ahí, la cámara viaja a su lado.
 
 ## Reglas
 
@@ -105,8 +125,10 @@ Jolteon, Emolga y Noibat.
 | `play-panel.js` | Atril y botones del turno (compartido pantalla/celular). |
 | `setup.js`, `host.js` | Configuración y partida en la pantalla principal (dueña del estado). |
 | `net-protocol.js`, `net-host.js`, `control.js` | Sala PeerJS y página del jugador. |
-| `view3d/` | Vista 3D (three.js): `stage.js` mesa, luces y diorama (`scenery.js`, `townmodels.js` de Pokémon Party); `board3d.js` une todo; `seats.js` posiciones de la mesa; `racks.js` atriles, bolsa y fichas que vuelan; `drag.js` arrastrar con el mouse; `tiles.js` fichas; `camera.js` cámara (primera persona y vista general); `companions.js` modelos; `fx.js` Poké Ball; `particles.js` partículas; `textures.js` texturas en canvas. |
+| `view3d/` | Vista 3D (three.js): `stage.js` mesa, luces y diorama (`scenery.js`, `townmodels.js` de Pokémon Party); `board3d.js` une todo; `seats.js` posiciones de la mesa; `racks.js` atriles, bolsa y fichas que vuelan; `mouse.js` mover/girar/zoom y fichas puestas; `tiles.js` fichas; `camera.js` cámara (primera persona y vista general); `companions.js` modelos; `fx.js` Poké Ball; `particles.js` partículas; `textures.js` texturas en canvas. |
 | `effects.css`, `hero.js` | Fondo, tarjetas y animaciones de interfaz; Pokémon flotando en la configuración. |
+| `stage.css`, `hud.js`, `cams.js` | Pantalla completa: espacio libre del tablero, menú, pantalla completa; columnas de cámaras y placas. |
+| `rack-drag.js` | Arrastrar fichas del atril al tablero y reordenar el atril. |
 
 La pantalla principal es la autoridad: los celulares solo mandan intenciones
 y la partida se vuelve a validar ahí. La partida se guarda en `localStorage`
@@ -117,6 +139,12 @@ Pruebas (reglas, regla de oro y partidas completas de bots):
 ```bash
 node games/scrabble-pokemon/tests/rules.test.js
 ```
+
+Revisión de superposiciones (en el navegador, con una partida abierta):
+`await import('./tests/overlap-check.js'); checkOverlaps()` devuelve la lista
+de cosas que se pisan (vacía = nada). Se revisó la pantalla principal en
+1280×720, 1366×768, 1600×900 y 1920×1080 con 0, 2, 3 y 4 cámaras, con y sin
+atril y con un aviso visible, y la página del jugador en 1024×640 a 1920×1080.
 
 ## Recursos Pokémon (uso privado)
 

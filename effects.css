@@ -104,31 +104,10 @@ body::after {
 }
 .player-card.winner { animation: glow 1s ease-in-out infinite; }
 
-/* ───────── Cartel «¡Turno de …!» ───────── */
-.center-col { position: relative; }
-.turn-pop-layer { position: absolute; left: 0; right: 0; top: 8%; z-index: 30; display: grid; justify-items: center; pointer-events: none; }
-body > .turn-pop-layer { position: fixed; top: 30%; }
-.turn-pop {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 26px 10px 12px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--pc), color-mix(in srgb, var(--pc) 65%, #fff));
-  border: 4px solid #fff;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3), 0 0 0 4px var(--pc);
-  color: #fff;
-  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
-  animation: sweep 2.1s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
-}
-.turn-pop .sprite { width: 72px; height: 72px; margin: -16px 0; filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.25)); animation: hop 0.6s ease-in-out 2; }
-.turn-pop div { display: grid; line-height: 1.05; }
-.turn-pop small { font-weight: 800; opacity: 0.9; }
-.turn-pop strong { font-size: 1.8rem; font-weight: 900; }
-
 /* ───────── Atril ───────── */
 .play-panel { position: relative; background: linear-gradient(180deg, #fff, #fbf7ea); }
 .play-panel.my-turn { animation: glow 2.2s ease-in-out infinite; }
+.play-panel.my-turn.turn-in { animation: bar-hello 0.9s ease-out, glow 2.2s ease-in-out 0.9s infinite; }
 .rack { background: linear-gradient(180deg, #a06a3d, #7d4f2a); border-radius: 14px; padding: 8px; box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.25), inset 0 -4px 0 rgba(0, 0, 0, 0.25); }
 .rack-slot .tile { transition: transform 0.15s, box-shadow 0.15s; box-shadow: 0 3px 0 #b08d43, 0 5px 8px rgba(0, 0, 0, 0.25); }
 .rack-slot:hover:not(:disabled) .tile { transform: translateY(-4px) rotate(-2deg); }
@@ -146,11 +125,6 @@ body > .turn-pop-layer { position: fixed; top: 30%; }
 .type-tile img, .type-tile .type-star { animation: hop 2.4s ease-in-out infinite; }
 .pp-status.good { animation: pop 0.35s ease-out; }
 .pp-status.bad { animation: shake 0.35s ease-out; }
-
-/* En 3D las fichas están en el atril de la mesa: el panel muestra la ficha de tipo y los botones. */
-body.mode-3d .play-panel .rack-tiles { display: none; }
-body.mode-3d .play-panel .rack { background: none; box-shadow: none; padding: 0; }
-body.mode-3d .play-panel .type-tile { width: 100%; grid-auto-flow: column; justify-content: center; gap: 10px; }
 
 /* ───────── Tablero 2D ───────── */
 .tile.pending { animation: bob 1s ease-in-out infinite; }
@@ -223,10 +197,3 @@ body.mode-3d .play-panel .type-tile { width: 100%; grid-auto-flow: column; justi
 @keyframes shake { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
 @keyframes slide-in { from { opacity: 0; transform: translateX(-16px); } }
 @keyframes spin-slow { to { transform: rotate(360deg); } }
-@keyframes sweep {
-  0% { opacity: 0; transform: translateX(-60vw) skewX(-12deg); }
-  18% { opacity: 1; transform: translateX(0) skewX(0); }
-  25% { transform: scale(1.06); }
-  32%, 78% { opacity: 1; transform: scale(1); }
-  100% { opacity: 0; transform: translateX(60vw) skewX(12deg); }
-}

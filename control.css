@@ -64,20 +64,15 @@
 .ctrl-score b { font-size: 1.1rem; }
 .ctrl-scores { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 
-/* ───────── Partida: horizontal, tablero grande y panel al costado ───────── */
+/* ───────── Partida (pantalla completa: stage.css) ───────── */
 .ctrl-top-actions { display: flex; align-items: center; gap: 8px; }
-body.control:has(#scrPlay:not([hidden])) .ctrl-main { max-width: none; padding: 10px 14px; }
-.ctrl-play {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
-  gap: 14px;
-  align-items: start;
-}
-.ctrl-stage { display: grid; justify-items: center; }
-.ctrl-side { display: grid; gap: 8px; align-content: start; }
-body.control { --bw: min(calc(100vw - 480px), calc(100vh - 110px)); }
-.ctrl-board3d { width: 100%; min-width: 0; height: calc(100vh - 92px); }
-.board3d-tools { position: absolute; top: 10px; right: 10px; display: flex; gap: 6px; }
-.ctrl-over { width: 100%; }
+body.control.in-game .ctrl-main { max-width: none; padding: 0; }
+.ctrl-play { display: block; }
+.hud-turn .ctrl-scores { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; width: auto; padding: 4px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.9); box-shadow: var(--shadow-sm); }
+.hud-turn .ctrl-score { flex-wrap: nowrap; padding: 2px 10px 2px 2px; border-radius: 999px; }
+.hud-turn .cs-name { max-width: 140px; }
+.hud-turn .hud-meta { border-left: 0; }
+.hud-right .ctrl-status { font-size: 0.75rem; }
+.ctrl-over { width: 100%; text-align: center; }
 
 @keyframes spin { to { transform: rotate(360deg); } }

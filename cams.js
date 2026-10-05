@@ -1,0 +1,122 @@
+/*
+ * Cámaras de la pantalla principal (como en Pokémon Party): columnas a los
+ * costados del área de juego con 0, 2, 3 o 4 espacios para superponer video
+ * en el stream o la edición. Debajo de cada cámara, la placa de su jugador.
+ *
+ * - 2 cámaras: una por lado · 3: dos a la izquierda y una a la derecha ·
+ *   4: dos por lado. Las columnas miden lo mismo, así el juego queda al centro.
+ * - Los jugadores sin cámara tienen su placa en una esquina del área de juego.
+ * - Interior neutro o verde croma (para recortar en edición).
+ *
+ * Solo dibuja; no cambia la partida.
+ */
+(function () {
+  'use strict';
+
+  const { $, el } = window.Dom;
+  const BV = window.BoardView;
+
+  const PREF_KEY = 'scrabblePokemon.cams.v1';
+  const COUNTS = [0, 2, 3, 4];
+
+  function readPrefs() {
+    try {
+      const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}');
+      return { count: COUNTS.includes(p.count) ? p.count : null, chroma: !!p.chroma };
+    } catch (err) {
+      console.warn('No se pudieron leer las preferencias de cámaras:', err);
+      return { count: null, chroma: false };
+    }
+  }
+
+  const prefs = readPrefs();
+  const listeners = [];
+
+  function save() {
+    try {
+      localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
+    } catch (err) {
+      console.warn('No se pudieron guardar las preferencias de cámaras:', err);
+    }
+  }
+
+  /** Cámaras a mostrar: la elegida, o tantas como jugadores (2 a 4). */
+  function countFor(players) {
+    return prefs.count != null ? prefs.count : Math.max(2, Math.min(4, players));
+  }
+
+  function slot(p, opts) {
+    return el('div', { class: `cam-slot ${opts.active ? 'turn' : ''} ${opts.winner ? 'winner' : ''}`, style: { '--pc': p ? p.color : '#adb5bd' } }, [
+      el('div', { class: 'cam-frame' }, [el('span', { class: 'cam-hint', text: 'Cámara' })]),
+      p ? BV.playerPlate(p, opts) : el('div', { class: 'plate empty' }, [el('small', { text: 'Sin jugador' })]),
+    ]);
+  }
+
+  /**
+   * view: vista pública · isRemote(seat): ¿juega desde otra pantalla?
+   * Devuelve los jugadores que quedaron sin cámara (van en las esquinas).
+   */
+  function render(view, isRemote) {
+    const layout = $('stageLayout');
+    const players = [...view.players].sort((a, b) => a.seat - b.seat);
+    const count = countFor(players.length);
+    layout.dataset.cams = String(count);
+    layout.classList.toggle('chroma', prefs.chroma);
+    const optsFor = (p) => {
+      const i = view.players.indexOf(p);
+      return {
+        active: view.phase === 'play' && view.turn === i,
+        winner: !!(view.winners && view.winners.includes(i)),
+        connected: isRemote(p.seat),
+      };
+    };
+    const withCam = players.slice(0, count);
+    const slots = Array.from({ length: count }, (_, k) => slot(withCam[k], withCam[k] ? optsFor(withCam[k]) : {}));
+    const leftN = Math.ceil(count / 2);
+    $('camLeft').replaceChildren(...slots.slice(0, leftN));
+    $('camRight').replaceChildren(...slots.slice(leftN));
+
+    const rest = players.slice(count);
+    $('hudPlaques').replaceChildren(...rest.map((p) => el('div', { class: 'corner-plate' }, [BV.playerPlate(p, optsFor(p))])));
+    return rest;
+  }
+
+  /** Controles del menú: cantidad de cámaras y fondo. */
+  function renderControls(container, players) {
+    const current = countFor(players);
+    container.replaceChildren(
+      el(
+        'div',
+        { class: 'seg', attrs: { role: 'radiogroup', 'aria-label': 'Cámaras' } },
+        COUNTS.map((n) =>
+          el('button', {
+            text: n === 0 ? 'Ninguna' : `${n}`,
+            attrs: { type: 'button', role: 'radio', 'aria-checked': String(current === n) },
+            on: {
+              click: () => {
+                prefs.count = n;
+                save();
+                listeners.forEach((fn) => fn());
+              },
+            },
+          }),
+        ),
+      ),
+      el('label', { class: 'menu-check' }, [
+        el('input', {
+          attrs: { type: 'checkbox', checked: prefs.chroma },
+          on: {
+            change: (e) => {
+              prefs.chroma = e.target.checked;
+              save();
+              listeners.forEach((fn) => fn());
+            },
+          },
+        }),
+        ' Fondo verde croma',
+      ]),
+    );
+  }
+
+  window.GameCams = { render, renderControls, onChange: (fn) => listeners.push(fn) };
+})();

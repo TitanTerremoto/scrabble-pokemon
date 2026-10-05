@@ -42,8 +42,13 @@
   }
 
   let toastTimer = null;
+  /**
+   * Aviso breve. En partida (pantalla completa) se muestra dentro de la barra
+   * de arriba (#hudToast), así nunca tapa el tablero.
+   */
   function toast(text, ms) {
-    const t = $('toast');
+    const inHud = document.body.classList.contains('in-game') && $('hudToast');
+    const t = inHud ? $('hudToast') : $('toast');
     t.textContent = text;
     t.hidden = false;
     t.classList.remove('show');

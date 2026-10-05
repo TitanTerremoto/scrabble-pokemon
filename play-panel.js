@@ -1,12 +1,14 @@
 /*
- * Panel del atril: las fichas del jugador, su ficha de tipo y los botones
- * del turno. Lo usan la pantalla principal (asientos que juegan ahí) y el
- * celular. Solo arma la jugada y la manda como intención; quien decide es
- * la pantalla principal (ScrabbleGame), que vuelve a validar todo.
+ * Atril (barra de abajo de la pantalla): la ficha de tipo, las fichas del
+ * jugador, el estado de la jugada y los botones del turno. Lo usan la
+ * pantalla principal (asientos que juegan ahí) y la página de cada jugador.
+ * Solo arma la jugada y la manda como intención; quien decide es la
+ * pantalla principal (ScrabbleGame), que vuelve a validar todo.
  *
- * Poner fichas: tocar una ficha del atril y después una casilla (o tocar una
- * casilla y escribir con el teclado; tocarla de nuevo cambia la dirección).
- * Tocar una ficha puesta la devuelve al atril.
+ * Poner fichas: arrastrarlas al tablero (rack-drag.js), o elegir una ficha y
+ * después la casilla, o hacer clic en una casilla y escribir con el teclado.
+ * Arrastrar dentro del atril las reordena. Una ficha puesta vuelve al atril
+ * con un clic o soltándola sobre el atril.
  */
 (function () {
   'use strict';
@@ -18,6 +20,7 @@
   /**
    * opts.container: dónde se dibuja · opts.send(action): manda la intención
    * opts.onChange(): la jugada en armado cambió (para redibujar el tablero)
+   * opts.getDropTarget(): tablero activo, para soltar fichas arrastradas
    */
   function create(opts) {
     let view = null;
@@ -202,7 +205,7 @@
             {
               style: deal ? { '--deal-delay': `${pos * 45}ms` } : {},
               class: `rack-slot ${deal ? 'deal' : ''} ${used.has(i) ? 'used' : ''} ${selected === i ? 'selected' : ''} ${exchange && exchange.idx.has(i) ? 'marked' : ''}`,
-              attrs: { type: 'button', disabled: used.has(i), 'aria-label': `Ficha ${p.rack[i]}` },
+              attrs: { type: 'button', disabled: used.has(i), 'data-i': i, 'aria-label': `Ficha ${p.rack[i]}`, title: turn ? 'Arrástrala al tablero' : '' },
               on: { click: () => tapTile(i) },
             },
             [BV.letterTile(p.rack[i])],
@@ -227,7 +230,7 @@
             }),
           ]
         : [
-            button('✅ Crear Pokémon', submitPlay, 'btn-primary', !turn || !res || !res.ok),
+            button('✅ Crear Pokémon', submitPlay, 'btn-primary pp-main', !turn || !res || !res.ok),
             button('↩ Recoger', () => {
               pending = [];
               cursor = null;
@@ -240,26 +243,51 @@
               changed();
             }, '', !turn),
             button('⏭ Pasar', () => opts.send({ type: 'pass' }), '', !turn),
-            button(view.hint ? '💡 Pista usada' : '💡 Pista (−5)', () => opts.send({ type: 'hint' }), '', !turn || !!view.hint),
+            button(view.hint ? '💡 Usada' : '💡 Pista −5', () => opts.send({ type: 'hint' }), '', !turn || !!view.hint),
           ];
 
+      const notes = [
+        view.turnNote ? el('p', { class: 'pp-note', text: `✨ ${view.turnNote}` }) : null,
+        view.hint ? el('p', { class: 'pp-hint' }, [BV.sprite(view.hint.id, 'mini'), `Pista: ${R.DEX[view.hint.id - 1].name} (marcado en el tablero)`]) : null,
+      ];
       c.replaceChildren(
         el('div', { class: `play-panel ${turn ? 'my-turn' : ''}`, style: { '--pc': p.color } }, [
-          el('div', { class: 'pp-head' }, [
-            el('strong', { text: turn ? `¡Tu turno, ${p.name}!` : `Fichas de ${p.name}` }),
-            el('span', { class: 'pp-bag', text: `Bolsa: ${view.bagCount}` }),
+          typeEl,
+          el('div', { class: 'rack' }, [
+            el('div', { class: 'pp-head' }, [
+              el('strong', { text: turn ? `¡Tu turno, ${p.name}!` : `Fichas de ${p.name}` }),
+              el('span', { class: 'pp-bag', text: `🎒 Bolsa: ${view.bagCount}` }),
+            ]),
+            el('div', { class: 'rack-tiles' }, tiles),
           ]),
-          view.turnNote ? el('p', { class: 'pp-note', text: `✨ ${view.turnNote}` }) : null,
-          view.hint ? el('p', { class: 'pp-hint' }, [BV.sprite(view.hint.id, 'mini'), `Pista: puedes crear a ${R.DEX[view.hint.id - 1].name} (marcado en el tablero).`]) : null,
-          el('div', { class: 'rack' }, [typeEl, el('div', { class: 'rack-tiles' }, tiles)]),
-          statusLine(),
-          el('div', { class: 'pp-actions' }, actions),
+          el('div', { class: 'pp-side' }, [...notes, statusLine(), el('div', { class: 'pp-actions' }, actions)]),
         ]),
       );
       deal = false;
     }
 
-    // ── Arrastrar (tablero 3D) ──
+    /** Reordena el atril: la ficha i pasa a la posición pos (entre las visibles). */
+    function reorder(i, pos) {
+      const visible = order.filter((k) => k < rack().length);
+      const from = visible.indexOf(i);
+      if (from < 0) return;
+      visible.splice(from, 1);
+      visible.splice(pos > from ? pos - 1 : pos, 0, i);
+      order = visible;
+      render();
+      if (opts.onChange) opts.onChange();
+    }
+
+    const rackDrag = window.RackDrag.create({
+      root: opts.container,
+      canDrag: () => canEdit(),
+      getTarget: () => (opts.getDropTarget ? opts.getDropTarget() : null),
+      letterOf: (i) => rack()[i],
+      onDrop: (i, cell) => placeAt(i, cell.r, cell.c),
+      onReorder: reorder,
+    });
+
+    // ── Fichas puestas (arrastre en el tablero) ──
     const canEdit = () => myTurn() && !exchange;
     const freeCell = (r, c) => R.inBounds(r, c) && !occupied(r, c);
 
@@ -303,7 +331,7 @@
       };
     }
 
-    return { update, tapCell, tapTile, onKey, placeAt, movePending, removeAt, boardExtra };
+    return { update, tapCell, tapTile, onKey, placeAt, movePending, removeAt, boardExtra, isOverRack: (x, y) => rackDrag.isOver(x, y) };
   }
 
   window.PlayPanel = { create };

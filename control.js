@@ -66,11 +66,16 @@
 
   function show(id) {
     for (const s of SCREENS) $(s).hidden = s !== id;
+    // La partida es pantalla completa: sin barra de página.
+    document.body.classList.toggle('in-game', id === 'scrPlay');
+    if (id === 'scrPlay') safeArea.schedule();
   }
 
   function setStatus(text, kind) {
-    $('ctrlStatus').textContent = text;
-    $('ctrlStatus').className = `ctrl-status ${kind || ''}`;
+    for (const id of ['ctrlStatus', 'ctrlStatusGame']) {
+      $(id).textContent = text;
+      $(id).className = `ctrl-status ${kind || ''}`;
+    }
   }
 
   // ── Conexión ──
@@ -292,6 +297,7 @@
     container: $('playPanel'),
     send: (action) => send({ t: 'act', a: action.type, tiles: action.tiles, indices: action.indices, swapType: action.swapType }),
     onChange: () => activeBoard().render(last.game, panel.boardExtra()),
+    getDropTarget: () => activeBoard(),
   });
 
   // ── Primera persona 3D (view3d/, llega después; ver «board3d-ready») ──
@@ -312,7 +318,9 @@
     if (use3d && !board3d && window.Board3D) board3d = window.Board3D.create($('board3dCanvas'), panel);
     $('board3dWrap').hidden = !has3d();
     $('boardFrame').hidden = has3d();
-    document.body.classList.toggle('mode-3d', has3d());
+    $('btnCam').hidden = !has3d();
+    $('btnCenter').hidden = !has3d();
+    if (lastSafe) applySafe(lastSafe);
     $('btnView3d').hidden = !window.Board3D;
     $('btnView3d').textContent = has3d() ? '▦ Vista 2D' : '🧊 Vista 3D';
     if (last && last.game) renderPlay();
@@ -332,27 +340,50 @@
     board3d.toggleView();
     $('btnCam').textContent = board3d.isAltView() ? '🎯 Ver el tablero' : '🪑 Ver la mesa';
   });
+  $('btnCenter').addEventListener('click', () => board3d && board3d.resetView());
+
+  // ── Pantalla completa: el tablero se encuadra donde no tapan la barra ni el atril ──
+  let lastSafe = null;
+  function applySafe(rect) {
+    lastSafe = rect;
+    if (board3d) board3d.setSafeArea(rect);
+    window.GameHud.placeBoard2d($('boardFrame'), rect);
+  }
+  const safeArea = window.GameHud.watchSafeArea({ area: $('playArea'), top: $('hudTop'), bottom: $('hudBottom'), onChange: applySafe });
+  window.GameHud.bindMenu($('btnMenu'), $('menuDrawer'), $('btnMenuClose'));
+  window.GameHud.bindFullscreen($('btnFull'));
 
   function renderPlay() {
     const g = last.game;
-    $('scoreRow').replaceChildren(
-      ...g.players.map((p, i) =>
-        el('div', { class: `ctrl-score ${g.phase === 'play' && g.turn === i ? 'active' : ''} ${i === g.me ? 'mine' : ''}`, style: { '--pc': p.color } }, [
-          BV.sprite(p.avatar, 'mini'),
-          el('span', { class: 'cs-name', text: p.name }),
-          el('b', { text: p.score }),
-          BV.typeChip(p.type, true),
-        ]),
-      ),
+    // Barra de arriba: todos los jugadores (quién juega, puntos y tipo) y la ronda.
+    const round = g.rounds ? `Ronda ${g.round}/${g.rounds}` : `Ronda ${g.round}`;
+    $('hudTurn').replaceChildren(
+      el('div', { class: 'ctrl-scores' }, [
+        ...g.players.map((p, i) =>
+          el('div', { class: `ctrl-score ${g.phase === 'play' && g.turn === i ? 'active' : ''} ${i === g.me ? 'mine' : ''}`, style: { '--pc': p.color } }, [
+            BV.sprite(p.avatar, 'mini'),
+            el('span', { class: 'cs-name', text: i === g.me ? `${p.name} (tú)` : p.name }),
+            el('b', { text: p.score }),
+            BV.typeChip(p.type, true),
+          ]),
+        ),
+        el('span', { class: 'hud-meta', text: `${round}${g.lastRound ? ' · ¡última!' : ''} · 🎒 ${g.bagCount}` }),
+      ]),
     );
-    $('roundInfo').textContent = `${g.rounds ? `Ronda ${g.round} de ${g.rounds}` : `Ronda ${g.round}`}${g.lastRound ? ' · ¡última!' : ''} · Bolsa: ${g.bagCount}`;
     panel.update(g);
     activeBoard().render(g, panel.boardExtra());
     renderOver(g);
     maybeReveal(g);
+    safeArea.schedule();
     const myTurn = g.phase === 'play' && g.turn === g.me;
     if (myTurn && !wasMyTurn) {
-      BV.turnBanner($('turnPop'), g.players[g.me], '¡Tu turno!');
+      // Tu turno: el atril y tu puntaje se animan (nada tapa el tablero).
+      for (const node of document.querySelectorAll('#playPanel .play-panel, .ctrl-score.mine')) {
+        node.classList.remove('turn-in');
+        void node.offsetWidth;
+        node.classList.add('turn-in');
+      }
+      toast('¡Es tu turno!');
       // Vibrar solo funciona después de que la persona tocó la página.
       if (navigator.vibrate && navigator.userActivation && navigator.userActivation.hasBeenActive) navigator.vibrate([80, 60, 80]);
     }

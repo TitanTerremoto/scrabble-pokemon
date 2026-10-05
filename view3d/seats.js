@@ -22,7 +22,7 @@ export const POV = { z: 16.5, y: 8.6, targetZ: 2.6, fov: 50 };
  * Vista «Tablero» (la de jugar): alta desde el lado del jugador, el tablero
  * llena la pantalla y queda lugar abajo para las fichas flotantes.
  */
-export const BOARD_VIEW = { z: 10.5, y: 22.5, targetZ: 2.8, fov: 40 };
+export const BOARD_VIEW = { z: 8.6, y: 19.5, targetZ: 1.4, fov: 40 };
 /** Fichas flotantes: distancia a la cámara y altura en pantalla (−1 abajo, 1 arriba). */
 export const HUD = { dist: 6, screenY: -0.78, maxSpacing: 0.62, tilt: 0.35 };
 

@@ -100,7 +100,13 @@
     }
     container.replaceChildren(grid);
 
+    let lastView = null;
+    let lastExtra = null;
+    let dropAt = -1;
+
     function render(view, extra) {
+      lastView = view;
+      lastExtra = extra;
       const pending = new Map(((extra && extra.pending) || []).map((p) => [R.idx(p.r, p.c), p.l]));
       const hint = extra && extra.hint;
       const cursor = extra && extra.cursor;
@@ -114,7 +120,7 @@
         const cell = view.board[i];
         const prem = R.PREMIUM[i];
         const isCenter = i === R.idx(R.CENTER, R.CENTER);
-        btn.className = `cell ${prem ? `prem-${prem}` : ''} ${isCenter ? 'center' : ''} ${hintCells.has(i) ? 'hinted' : ''} ${i === cursorAt ? `cursor cursor-${cursor.dir}` : ''}`;
+        btn.className = `cell ${prem ? `prem-${prem}` : ''} ${isCenter ? 'center' : ''} ${hintCells.has(i) ? 'hinted' : ''} ${i === cursorAt ? `cursor cursor-${cursor.dir}` : ''} ${i === dropAt ? 'drop-target' : ''}`;
         if (cell) {
           btn.replaceChildren(letterTile(cell.l, { cls: fresh.has(i) ? 'fresh' : '', color: colorOf.get(cell.s) }));
         } else if (pending.has(i)) {
@@ -130,7 +136,32 @@
       });
     }
 
-    return { render, element: grid };
+    /** Casilla libre bajo un punto de la pantalla (para soltar fichas del atril). */
+    function previewDrop(clientX, clientY) {
+      const btn = document.elementFromPoint(clientX, clientY);
+      const cellEl = btn && btn.closest ? btn.closest('.cell') : null;
+      let cell = null;
+      if (cellEl && grid.contains(cellEl) && lastView && lastExtra && lastExtra.editable) {
+        const r = Number(cellEl.dataset.r);
+        const c = Number(cellEl.dataset.c);
+        const busy = lastView.board[R.idx(r, c)] || (lastExtra.pending || []).some((p) => p.r === r && p.c === c);
+        if (!busy) cell = { r, c };
+      }
+      const at = cell ? R.idx(cell.r, cell.c) : -1;
+      if (at !== dropAt) {
+        dropAt = at;
+        if (lastView) render(lastView, lastExtra);
+      }
+      return cell;
+    }
+
+    function clearDrop() {
+      if (dropAt === -1) return;
+      dropAt = -1;
+      if (lastView) render(lastView, lastExtra);
+    }
+
+    return { render, previewDrop, clearDrop, element: grid };
   }
 
   // ── Jugadores ──
@@ -181,11 +212,27 @@
     ]);
   }
 
-  /** Cartel grande «¡Turno de …!» que cruza la pantalla y se va solo. */
-  function turnBanner(layer, p, text) {
-    const node = el('div', { class: 'turn-pop', style: { '--pc': p.color } }, [sprite(p.avatar), el('div', {}, [el('small', { text: 'Turno de' }), el('strong', { text })]), typeChip(p.type)]);
-    layer.replaceChildren(node);
-    setTimeout(() => node.remove(), 2100);
+  /**
+   * Placa compacta de jugador (debajo de su cámara o en una esquina del área
+   * de juego): compañero, nombre, puntos (suben animados), ficha de tipo y
+   * fichas en el atril.
+   */
+  function playerPlate(p, opts) {
+    const o = opts || {};
+    const prev = shownScores.get(p.seat);
+    shownScores.set(p.seat, p.score);
+    const changed = prev != null && prev !== p.score;
+    const scoreNum = el('b', { text: changed ? prev : p.score });
+    if (changed) animateNumber(scoreNum, prev, p.score, 900);
+    const diff = changed ? p.score - prev : 0;
+    return el('div', { class: `plate ${o.active ? 'active' : ''} ${o.winner ? 'winner' : ''} ${changed ? 'scored' : ''}`, style: { '--pc': p.color } }, [
+      el('div', { class: 'plate-avatar' }, [sprite(p.avatar)]),
+      el('div', { class: 'plate-info' }, [
+        el('strong', { class: 'plate-name', text: p.name }),
+        el('div', { class: 'plate-meta' }, [typeChip(p.type, true), el('span', { class: 'plate-count', attrs: { title: 'Fichas en el atril' }, text: `🎒 ${p.rackCount}` }), o.connected ? el('span', { text: '🖥' }) : null, p.bot ? el('span', { text: '🤖' }) : null]),
+      ]),
+      el('div', { class: 'plate-score' }, [scoreNum, el('small', { text: 'pts' }), changed ? el('span', { class: `pc-gain ${diff < 0 ? 'loss' : ''}`, text: diff > 0 ? `+${diff}` : String(diff) }) : null]),
+    ]);
   }
 
   /** Tarjeta grande al crear un Pokémon. */
@@ -224,5 +271,5 @@
     board: 'No entra ningún Pokémon más en el tablero.',
   };
 
-  window.BoardView = { AVATARS, AVATAR_MODELS, createBoard, turnBanner, letterTile, typeTile, typeChip, playerCard, revealCard, logLine, sprite, pokeBall, END_REASON };
+  window.BoardView = { AVATARS, AVATAR_MODELS, createBoard, playerPlate, letterTile, typeTile, typeChip, playerCard, revealCard, logLine, sprite, pokeBall, END_REASON };
 })();
