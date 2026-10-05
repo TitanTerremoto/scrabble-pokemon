@@ -1,0 +1,8 @@
+{
+  "name": "scrabble-pokemon",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "node tests/rules.test.js"
+  }
+}

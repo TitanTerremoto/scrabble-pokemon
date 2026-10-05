@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pokémon Scrabble</title>
+    <meta name="description" content="Scrabble de Pokémon para hasta 4 jugadores: cada palabra es uno de los 1025 Pokémon." />
+    <link rel="stylesheet" href="styles.css?v=2" />
+    <link rel="stylesheet" href="effects.css?v=2" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1 class="brand">
+        <svg class="brand-ball" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29" fill="#fff" stroke="#1f2933" stroke-width="4"/><path d="M3 32 A29 29 0 0 1 61 32 Z" fill="#e3350d" stroke="#1f2933" stroke-width="4"/><rect x="3" y="29" width="58" height="6" fill="#1f2933"/><circle cx="32" cy="32" r="10" fill="#fff" stroke="#1f2933" stroke-width="4"/></svg>
+        <span class="brand-poke">Pokémon</span>
+        <span class="brand-sub">Scrabble</span>
+      </h1>
+      <nav class="topbar-actions" aria-label="Controles de la partida">
+        <button type="button" class="btn btn-ghost" id="btnRules">❓ Cómo jugar</button>
+        <button type="button" class="btn btn-ghost" id="btnView3d" hidden>🧊 Vista 3D</button>
+        <span class="room-badge" id="roomBadge" hidden></span>
+        <button type="button" class="btn btn-ghost" id="btnRestart" hidden>↻ Nueva partida</button>
+        <button type="button" class="btn btn-ghost" id="btnSetup" hidden>⚙ Configuración</button>
+      </nav>
+    </header>
+
+    <main>
+      <!-- ═════════ Configuración ═════════ -->
+      <section id="screenSetup" class="screen setup" aria-labelledby="setupTitle">
+        <div class="setup-intro card">
+          <div class="hero-sprites" id="heroSprites" aria-hidden="true"></div>
+          <h2 id="setupTitle">¡Arma Pokémon con tus fichas!</h2>
+          <p>
+            Como el Scrabble, pero cada palabra tiene que ser <strong>uno de los 1025 Pokémon</strong>. Cada jugador tiene
+            <strong>10 fichas de letra</strong> y una <strong>ficha de tipo</strong> que lo obliga: si te toca 🔥 Fuego, solo
+            puedes crear Pokémon de tipo Fuego. La bolsa siempre reparte para que haya <strong>al menos un Pokémon posible</strong>.
+          </p>
+        </div>
+
+        <section class="card online-card" aria-labelledby="onlineTitle">
+          <h2 id="onlineTitle">🌐 Jugar desde celulares</h2>
+          <div class="online-panel" id="onlinePanel"></div>
+        </section>
+
+        <form id="setupForm" class="setup-form" novalidate>
+          <div class="player-setup-grid" id="playerSetup"></div>
+          <label class="rounds-row">
+            <span>Duración</span>
+            <select id="roundsSelect" class="select">
+              <option value="5">5 rondas</option>
+              <option value="8">8 rondas</option>
+              <option value="12">12 rondas</option>
+              <option value="0">Hasta vaciar la bolsa</option>
+            </select>
+          </label>
+          <p class="setup-hint" id="setupHint" role="status"></p>
+          <button type="submit" class="btn btn-primary btn-big" id="btnStart" disabled>¡Comenzar partida!</button>
+        </form>
+      </section>
+
+      <!-- ═════════ Juego ═════════ -->
+      <section id="screenGame" class="screen game" hidden aria-label="Partida">
+        <div class="table">
+          <!-- Posiciones en la mesa: 1 y 3 a la izquierda, 2 y 4 a la derecha -->
+          <aside class="seats seats-left">
+            <div class="seat-slot" id="seatSlot0"></div>
+            <div class="seat-slot" id="seatSlot2"></div>
+          </aside>
+
+          <div class="center-col">
+            <div class="turn-pop-layer" id="turnPop" aria-live="polite"></div>
+            <div class="board-frame" id="boardFrame">
+              <div class="board-wrap" id="boardWrap"></div>
+            </div>
+            <!-- Tablero 3D (view3d/). Si el navegador no puede mostrarlo, queda el 2D de arriba. -->
+            <div class="board3d" id="board3dWrap" hidden>
+              <div class="board3d-canvas" id="board3dCanvas"></div>
+              <button type="button" class="btn btn-ghost board3d-cam" id="btnCam">🎥 Cámara</button>
+            </div>
+            <p class="round-info" id="roundInfo"></p>
+            <div class="turn-status" id="turnStatus"></div>
+            <div class="play-panel-wrap" id="playPanel" hidden></div>
+          </div>
+
+          <aside class="seats seats-right">
+            <div class="seat-slot" id="seatSlot1"></div>
+            <div class="seat-slot" id="seatSlot3"></div>
+            <section class="card side-card">
+              <h3>📖 Pokédex de la partida</h3>
+              <ol class="game-log" id="gameLog"></ol>
+            </section>
+            <section class="card side-card">
+              <h3>🌐 Sala</h3>
+              <div class="online-panel" id="onlinePanelGame"></div>
+            </section>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <!-- ¡Creaste a …! -->
+    <div class="overlay reveal" id="revealDialog" hidden>
+      <div id="revealBody"></div>
+    </div>
+
+    <!-- Fin de la partida -->
+    <div class="overlay" id="endDialog" hidden role="dialog" aria-labelledby="endTitle">
+      <div class="modal card">
+        <h2 id="endTitle"></h2>
+        <p class="muted" id="endReason"></p>
+        <ol class="end-ranking" id="endRanking"></ol>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-primary" id="btnEndAgain">↻ Otra partida</button>
+          <button type="button" class="btn" id="btnEndSetup">⚙ Configuración</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reglas -->
+    <div class="overlay" id="rulesDialog" hidden role="dialog" aria-labelledby="rulesTitle">
+      <div class="modal card rules">
+        <h2 id="rulesTitle">❓ Cómo jugar</h2>
+        <ol>
+          <li><strong>Tu atril:</strong> 10 fichas de letra y 1 ficha de tipo.</li>
+          <li><strong>En tu turno</strong> pon fichas en una fila o columna para formar el nombre de un Pokémon (sin acentos ni signos: «Mr. Mime» es MRMIME).</li>
+          <li><strong>Ficha de tipo:</strong> el Pokémon tiene que ser de ese tipo (sirve cualquiera de sus dos tipos). ★ Comodín vale cualquier tipo.</li>
+          <li>La primera palabra pasa por la Poké Ball del centro. Después, cada Pokémon tiene que <strong>cruzarse o unirse</strong> con las fichas del tablero.</li>
+          <li>Cada Pokémon se puede crear <strong>una sola vez</strong> por partida. Si se forman otras palabras de costado, también tienen que ser Pokémon.</li>
+          <li><strong>Puntos:</strong> suma de las letras. x2/x3 letra multiplica esa ficha; x2/x3 palabra, todo el Pokémon (solo las casillas que cubres este turno). Usar 7 fichas o más: +20.</li>
+          <li><strong>Regla de oro:</strong> al empezar tu turno, la bolsa garantiza que con tus fichas haya al menos un Pokémon posible. Si tuvo que ajustarlas, te avisa.</li>
+          <li>También puedes <strong>cambiar</strong> fichas (y/o tu ficha de tipo), <strong>pasar</strong> o pedir una <strong>pista</strong> (−5 puntos).</li>
+          <li><strong>Fin:</strong> al terminar las rondas, al vaciarse la bolsa o cuando ya no entra ningún Pokémon en el tablero. Gana quien tenga más puntos.</li>
+        </ol>
+        <p class="muted">En 3D: arrastra las fichas de tu atril al tablero (y de vuelta). Con teclado: haz clic en una casilla vacía y escribe (otro clic cambia la dirección); Enter crea el Pokémon, Retroceso borra.</p>
+        <div class="modal-actions"><button type="button" class="btn btn-primary" id="btnRulesClose">¡Entendido!</button></div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+    <script src="pokedex.js"></script>
+    <script src="rules.js"></script>
+    <script src="moves.js"></script>
+    <script src="game.js"></script>
+    <script src="dom.js"></script>
+    <script src="board-view.js"></script>
+    <script src="play-panel.js"></script>
+    <script src="setup.js"></script>
+    <script src="hero.js"></script>
+    <script src="host.js"></script>
+    <script src="net-protocol.js"></script>
+    <script src="vendor/peerjs.min.js"></script>
+    <script src="net-host.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./vendor/three/three.module.js",
+          "three/addons/": "./vendor/three/addons/"
+        }
+      }
+    </script>
+    <script type="module" src="view3d/view3d.js"></script>
+  </body>
+</html>

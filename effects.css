@@ -1,0 +1,232 @@
+/* ═══════════════════════════════════════════════════════════
+   Pokémon Scrabble · fondo, tarjetas y animaciones de interfaz
+   (styles.css tiene la estructura; aquí va lo decorativo y el movimiento)
+   ═══════════════════════════════════════════════════════════ */
+
+/* ───────── Fondo: cielo con Poké Balls que se deslizan ───────── */
+body {
+  background:
+    radial-gradient(circle at 15% 0%, rgba(255, 255, 255, 0.85), transparent 45%),
+    radial-gradient(circle at 85% 100%, rgba(255, 203, 5, 0.35), transparent 50%),
+    linear-gradient(160deg, #8fd3ff 0%, #c9ecff 45%, #fff3cf 100%);
+  background-attachment: fixed;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: -120px;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.13;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%231d3a8a' stroke-width='5'%3E%3Ccircle cx='30' cy='30' r='20'/%3E%3Cpath d='M10 30h40'/%3E%3Ccircle cx='30' cy='30' r='6' fill='%23fff'/%3E%3Ccircle cx='90' cy='90' r='20'/%3E%3Cpath d='M70 90h40'/%3E%3Ccircle cx='90' cy='90' r='6' fill='%23fff'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 120px 120px;
+  animation: drift 40s linear infinite;
+}
+body::after {
+  /* Nubes suaves que pasan por detrás de todo */
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 220px 70px at 20% 18%, rgba(255, 255, 255, 0.8), transparent 70%),
+    radial-gradient(ellipse 300px 90px at 70% 30%, rgba(255, 255, 255, 0.7), transparent 70%),
+    radial-gradient(ellipse 260px 80px at 40% 80%, rgba(255, 255, 255, 0.6), transparent 70%);
+  animation: clouds 60s ease-in-out infinite alternate;
+}
+
+/* ───────── Barra superior con brillo ───────── */
+.topbar { overflow: hidden; }
+.topbar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.25) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: shine 7s ease-in-out infinite;
+}
+
+/* ───────── Botones ───────── */
+.btn-primary { position: relative; overflow: hidden; }
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, 0.45) 50%, transparent 65%);
+  transform: translateX(-120%);
+  transition: transform 0.6s;
+}
+.btn-primary:hover:not(:disabled)::after { transform: translateX(120%); }
+.btn-primary:not(:disabled) { animation: breathe 2.6s ease-in-out infinite; }
+
+/* ───────── Tarjetas de jugador ───────── */
+.player-card { padding: 0 0 10px; overflow: visible; gap: 6px; border-width: 3px; }
+.pc-band {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(90deg, var(--pc), color-mix(in srgb, var(--pc) 70%, #fff));
+  color: #fff;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+}
+.pc-band small { font-weight: 800; font-size: 0.75rem; letter-spacing: 0.3px; }
+.pc-band .pc-turn { position: static; margin-left: auto; background: #fff; color: var(--pc); text-shadow: none; animation: blink-soft 1.2s ease-in-out infinite; }
+.pc-head, .pc-foot { padding: 0 12px; }
+.pc-id { gap: 4px; justify-items: start; }
+.pc-avatar { width: 62px; height: 62px; box-shadow: 0 0 0 4px #fff, 0 4px 10px rgba(0, 0, 0, 0.2); background: radial-gradient(circle at 50% 35%, #fff, color-mix(in srgb, var(--pc) 25%, #fff)); }
+.pc-avatar .sprite { width: 72px; height: 72px; }
+.player-card.active .pc-avatar .sprite { animation: hop 1.1s ease-in-out infinite; }
+.pc-score { position: relative; }
+.pc-score b { font-variant-numeric: tabular-nums; }
+.player-card.scored .pc-score b { animation: pop 0.6s ease-out; color: var(--pc); }
+.pc-gain {
+  position: absolute;
+  right: 0;
+  top: -6px;
+  font-weight: 900;
+  font-size: 1.1rem;
+  color: #2b8a3e;
+  text-shadow: 0 2px 0 #fff;
+  animation: float-up 1.6s ease-out forwards;
+  pointer-events: none;
+}
+.pc-gain.loss { color: #c92a2a; }
+.pc-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.pc-dex .sprite.mini { transition: transform 0.15s; }
+.pc-dex .sprite.mini:last-child { animation: pop 0.6s ease-out; }
+.player-card.active {
+  border-color: var(--pc);
+  animation: glow 1.8s ease-in-out infinite;
+}
+.player-card.winner { animation: glow 1s ease-in-out infinite; }
+
+/* ───────── Cartel «¡Turno de …!» ───────── */
+.center-col { position: relative; }
+.turn-pop-layer { position: absolute; left: 0; right: 0; top: 8%; z-index: 30; display: grid; justify-items: center; pointer-events: none; }
+body > .turn-pop-layer { position: fixed; top: 30%; }
+.turn-pop {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 26px 10px 12px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--pc), color-mix(in srgb, var(--pc) 65%, #fff));
+  border: 4px solid #fff;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3), 0 0 0 4px var(--pc);
+  color: #fff;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+  animation: sweep 2.1s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+}
+.turn-pop .sprite { width: 72px; height: 72px; margin: -16px 0; filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.25)); animation: hop 0.6s ease-in-out 2; }
+.turn-pop div { display: grid; line-height: 1.05; }
+.turn-pop small { font-weight: 800; opacity: 0.9; }
+.turn-pop strong { font-size: 1.8rem; font-weight: 900; }
+
+/* ───────── Atril ───────── */
+.play-panel { position: relative; background: linear-gradient(180deg, #fff, #fbf7ea); }
+.play-panel.my-turn { animation: glow 2.2s ease-in-out infinite; }
+.rack { background: linear-gradient(180deg, #a06a3d, #7d4f2a); border-radius: 14px; padding: 8px; box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.25), inset 0 -4px 0 rgba(0, 0, 0, 0.25); }
+.rack-slot .tile { transition: transform 0.15s, box-shadow 0.15s; box-shadow: 0 3px 0 #b08d43, 0 5px 8px rgba(0, 0, 0, 0.25); }
+.rack-slot:hover:not(:disabled) .tile { transform: translateY(-4px) rotate(-2deg); }
+.rack-slot.selected .tile { animation: bob 0.8s ease-in-out infinite; }
+.rack-slot.deal .tile { animation: deal 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.3) both; animation-delay: var(--deal-delay); }
+.type-tile { position: relative; overflow: hidden; }
+.type-tile::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.5) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: shine 3.5s ease-in-out infinite;
+}
+.type-tile img, .type-tile .type-star { animation: hop 2.4s ease-in-out infinite; }
+.pp-status.good { animation: pop 0.35s ease-out; }
+.pp-status.bad { animation: shake 0.35s ease-out; }
+
+/* En 3D las fichas están en el atril de la mesa: el panel muestra la ficha de tipo y los botones. */
+body.mode-3d .play-panel .rack-tiles { display: none; }
+body.mode-3d .play-panel .rack { background: none; box-shadow: none; padding: 0; }
+body.mode-3d .play-panel .type-tile { width: 100%; grid-auto-flow: column; justify-content: center; gap: 10px; }
+
+/* ───────── Tablero 2D ───────── */
+.tile.pending { animation: bob 1s ease-in-out infinite; }
+.cell.center .cell-ball { animation: ball-wobble 4s ease-in-out infinite; }
+
+/* ───────── Registro ───────── */
+.game-log li:first-child { animation: slide-in 0.4s ease-out; }
+.game-log li { padding: 3px 6px; border-radius: 8px; }
+.game-log li:nth-child(odd) { background: rgba(0, 0, 0, 0.03); }
+
+/* ───────── Configuración ───────── */
+.seat-card { transition: transform 0.2s, box-shadow 0.2s; }
+.seat-card:not(.off):hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+.avatar-opt { transition: transform 0.15s; }
+.avatar-opt:hover:not(:disabled) { transform: translateY(-3px) scale(1.05); }
+.avatar-opt[aria-checked='true'] .sprite { animation: hop 1s ease-in-out infinite; }
+.setup-intro { position: relative; overflow: hidden; }
+.setup-intro::after {
+  content: '';
+  position: absolute;
+  right: -40px;
+  top: -40px;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  border: 18px solid rgba(227, 53, 13, 0.08);
+  box-shadow: inset 0 0 0 30px rgba(227, 53, 13, 0.04);
+  animation: spin-slow 30s linear infinite;
+}
+
+.setup-intro > :not(.hero-sprites) { position: relative; z-index: 1; }
+.setup-intro { padding-top: 26px; padding-bottom: 26px; text-align: center; }
+.setup-intro p { max-width: 62ch; margin-left: auto; margin-right: auto; }
+.hero-sprites { position: absolute; inset: 0; pointer-events: none; }
+.hero-sprite {
+  position: absolute;
+  width: 72px;
+  height: 72px;
+  opacity: 0.4;
+  animation: float var(--float-dur, 6s) ease-in-out var(--float-delay, 0s) infinite;
+  transition: opacity 0.5s, transform 0.5s;
+}
+.hero-sprite.leaving { opacity: 0; transform: scale(0.3); }
+
+/* ───────── Ventanas ───────── */
+.overlay.show .modal { animation: pop-in 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.3); }
+.end-row { animation: slide-in 0.5s ease-out both; }
+.end-row:nth-child(2) { animation-delay: 0.12s; }
+.end-row:nth-child(3) { animation-delay: 0.24s; }
+.end-row:nth-child(4) { animation-delay: 0.36s; }
+.end-row:first-child { background: linear-gradient(90deg, #fff9db, #fff); }
+.end-row:first-child > .sprite { animation: hop 0.9s ease-in-out infinite; }
+
+/* ───────── Animaciones ───────── */
+@keyframes float { 0%, 100% { translate: 0 0; rotate: -4deg; } 50% { translate: 0 -14px; rotate: 4deg; } }
+@keyframes drift { to { transform: translate(120px, 120px); } }
+@keyframes clouds { to { transform: translateX(80px); } }
+@keyframes shine { 0%, 60% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+@keyframes breathe { 50% { box-shadow: 0 4px 0 var(--brand-dark), 0 0 0 6px rgba(227, 53, 13, 0.18); } }
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--pc) 25%, transparent), var(--shadow); }
+  50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--pc) 35%, transparent), 0 0 26px color-mix(in srgb, var(--pc) 45%, transparent); }
+}
+@keyframes hop { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-14%); } 60% { transform: translateY(-14%) scaleY(1.04); } }
+@keyframes bob { 0%, 100% { transform: translateY(-3px); } 50% { transform: translateY(-7px); } }
+@keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
+@keyframes float-up { 0% { opacity: 0; transform: translateY(8px) scale(0.6); } 20% { opacity: 1; transform: translateY(0) scale(1.15); } 100% { opacity: 0; transform: translateY(-30px) scale(1); } }
+@keyframes blink-soft { 50% { opacity: 0.6; } }
+@keyframes deal { from { opacity: 0; transform: translateY(-40px) rotate(-25deg) scale(0.5); } }
+@keyframes shake { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
+@keyframes slide-in { from { opacity: 0; transform: translateX(-16px); } }
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+@keyframes sweep {
+  0% { opacity: 0; transform: translateX(-60vw) skewX(-12deg); }
+  18% { opacity: 1; transform: translateX(0) skewX(0); }
+  25% { transform: scale(1.06); }
+  32%, 78% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: translateX(60vw) skewX(12deg); }
+}
